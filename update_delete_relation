@@ -1,0 +1,17 @@
+from py2neo import Graph,NodeMatcher
+from py2neo import Node, Relationship
+import uuid
+graph = Graph("bolt://localhost:7687", user="neo4j", password="")
+current_user="rizwan123"
+new_user="rz11"
+id_tag="f85f66b0-9698-4004-8626-aa6cf80de5df"
+query = r'MATCH (user_info:user_data) ,(pet_info:pet_data) WHERE user_info.user_name = "{current_user}" and pet_info.id_tag = "{id_tag}" CREATE (user_info)-[relation:Past_Owner]->(pet_info) RETURN relation'.format( current_user=current_user, id_tag=id_tag)
+print(query)
+past=list(graph.run(query))
+print(past)
+current=list(graph.run(r'MATCH (user_info:user_data) ,(pet_info:pet_data) WHERE user_info.user_name = "{new_user}" and pet_info.id_tag = "{id_tag}" CREATE (user_info)-[relation:Current_Owner]->(pet_info) RETURN relation'.format( new_user=new_user, id_tag=id_tag)))
+print(current)
+delete='MATCH (:user_data {user_name:"%s"})-[r:Current_Owner]-(:pet_data {id_tag:"%s"}) DELETE r '%(current_user,id_tag)
+delete_query=list(graph.run(delete))
+print(delete_query)
+print(delete)
