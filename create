@@ -1,0 +1,6 @@
+from py2neo import Graph,NodeMatcher
+from py2neo import Node, Relationship
+import uuid
+graph = Graph("bolt://localhost:7687", user="neo4j", password="")
+create =Node('user_data',id=str(uuid.uuid4()), name=input("name"),number=input("number"),user_name=input("user_name"),position=input("position"),address=input("address"),user_type="primary")
+graph.create(create)
