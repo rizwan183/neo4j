@@ -1,0 +1,13 @@
+from py2neo import Graph,NodeMatcher
+from py2neo import Node, Relationship
+import uuid
+graph = Graph("bolt://localhost:7687", user="neo4j", password="")
+user_name="sam123"
+matcher = NodeMatcher(graph)
+match=matcher.match("user_data",user_name=user_name).first()
+print(match)
+if match!=None:
+    pet = Node('pet_data',id_tag=str(uuid.uuid4()), bio=input("bio"), birthday=input("birthday"),breed=input("breed"), photo=input("photo"), video=input("video"), dam=input("dam"),url="url",name=input("pet_name"), pet_type=input("type"),user_name=user_name, sire=input("sire"), pet_status="unsold")
+    #graph.create(pet)
+    existing_u1_knows_u2 = Relationship(match, 'Current_Owner', pet)
+    graph.create(existing_u1_knows_u2)
