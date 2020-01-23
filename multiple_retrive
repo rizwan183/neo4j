@@ -1,0 +1,12 @@
+from py2neo import Graph,NodeMatcher
+from py2neo import Node, Relationship
+import uuid
+graph = Graph("bolt://localhost:7687", user="neo4j", password="rewoke")
+print("______________________________________________________________________________Current_Animals_____________________________________")
+current=list(graph.run('MATCH (user:user_data)-[relation:Current_Owner]->(pet:pet_data) where user.user_name="rz11" return relation'))
+for current_amnimals in current:
+    print(current_amnimals)
+print("_______________________________________________________________________________Past_Animals_______________________________________")
+past=list(graph.run('MATCH (user:user_data)-[relation:Past_Owner]->(pet:pet_data) where user.user_name="rz11" return relation'))
+for past_amnimals in past:
+    print(past_amnimals)
