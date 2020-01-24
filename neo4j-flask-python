@@ -1,0 +1,174 @@
+from py2neo import Graph,NodeMatcher
+from py2neo import Node, Relationship
+import uuid
+from json import dumps
+graph = Graph("bolt://localhost:7687", user="", password="")
+from flask import Flask,request,jsonify
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/user_data',methods=["POST"])
+def user_create():
+    data=request.get_json(force=True, silent=True)
+    print(data)
+    id=str(uuid.uuid4())
+    data.update({"id":id})
+    #context = request.environ['context']
+    create = Node('user_data', id=id, name=data.get("name"), number=data.get("number"),
+                  user_name=data.get("user_name"), position=data.get("position"), address=data.get("address"),
+                  user_type="primary")
+    graph.create(create)
+    return data
+
+@app.route('/user_data',methods=["GET"])
+def user_get_all():
+    all_user_list = dumps(graph.run('MATCH (n:user_data) RETURN n').data())
+    print(all_user_list)
+    return all_user_list
+
+@app.route('/user_data/<string:user_id>',methods=["Get"])
+def user_info_get(user_id):
+    query='MATCH(user:user_data) where user.id="%s" return user'%(user_id)
+    #print(query)
+    user_information =graph.run(query).data()
+    print(user_information)
+    if user_information:
+        return dumps(user_information)
+    else:
+        return jsonify({"user_not_found":user_id})
+
+@app.route('/user_data/<string:user_id>',methods=["PATCH"])
+def user_update(user_id):
+    query = 'MATCH(user:user_data) where user.id="%s" return user' % (user_id)
+    data = request.get_json(force=True, silent=True)
+    # print(query)
+    user_information = graph.run(query).data()
+    print(user_information)
+    #print('MATCH (user:user_data{id:"%s"}) SET user.number="%s"  RETURN user'%(user_id,input("enter number")))
+    if user_information:
+        update=graph.run('MATCH (user:user_data{id:"%s"}) SET user.name="%s" ,user.number="%s",user.position="%s",user.address="%s"  RETURN user'%(user_id,data.get("name"),data.get("number"),data.get("position"),data.get("address")))
+        return jsonify({"user_updated": user_id})
+    else:
+        return jsonify({"user_not_found": user_id})
+@app.route('/user_data/<string:user_id>',methods=["delete"])
+def user_delete(user_id):
+    query = query='MATCH(user:user_data) where user.id="%s" return user'%(user_id)
+    user_information = graph.run(query).data()
+    if user_information:
+        delete_user=graph.run('MATCH (user:user_data {id: "%s"}) DETACH DELETE user'%(user_id))
+        return jsonify({"user_deleted": user_id})
+    else:
+        return jsonify({"user_not_found": user_id})
+@app.route('/pet_data',methods=["POST"])
+def pet_add():
+    matcher = NodeMatcher(graph)
+    data = request.get_json(force=True, silent=True)
+    print(data)
+    id = str(uuid.uuid4())
+    data.update({"id": id})
+    match = matcher.match("user_data", user_name=data.get("user_name")).first()
+    print(match)
+    if match != None:
+        pet = Node('pet_data', id_tag=id, bio=data.get("bio"), birthday=data.get("birthday"),
+                   breed=data.get("breed"), photo=data.get("photo"), video=data.get("video"), dam=data.get("dam"), url=data.get("url"),
+                   name=data.get("pet_name"), pet_type=data.get("type"), user_name=data.get("user_name"), sire=data.get("sire"),
+                   pet_status="unsold")
+        # graph.create(pet)
+        existing_u1_knows_u2 = Relationship(match, 'Current_Owner', pet)
+        graph.create(existing_u1_knows_u2)
+        return data
+    else:
+        return jsonify({"user_not_found":data.get("user_name")})
+
+@app.route('/pet_data',methods=["GET"])
+def pet_list():
+    all_pet_list = dumps(graph.run('MATCH (n:pet_data) RETURN n').data())
+    print(all_pet_list)
+    return all_pet_list
+
+@app.route('/pet_data/<string:id_tag>',methods=["GET"])
+def pet_information(id_tag):
+    query = 'MATCH(pet:pet_data) where pet.id_tag="%s" return pet'%(id_tag)
+    # print(query)
+    pet_information = graph.run(query).data()
+    print(pet_information)
+    if pet_information:
+        return dumps(pet_information)
+    else:
+        return jsonify({"pet_not_found":id_tag})
+
+@app.route('/pet_data/<string:id_tag>',methods=["delete"])
+def pet_delete(id_tag):
+    query = 'MATCH(pet:pet_data) where pet.id_tag="%s" return pet' % (id_tag)
+    pet_information = graph.run(query).data()
+    if pet_information:
+        pet_info=graph.run('MATCH (pet:pet_data {id_tag: "%s"}) DETACH DELETE pet'%(id_tag))
+        return jsonify({"user_deleted":id_tag})
+    else:
+        return jsonify({"pet_not_found": id_tag})
+@app.route('/current_owner',methods=["get"])
+def current_owner():
+    current=list(graph.run('MATCH Current_Owner_relation=(:user_data)-[:Current_Owner*]-(:pet_data) WITH COLLECT(Current_Owner_relation) as paths CALL apoc.convert.toTree(paths) yield value RETURN value;'))
+    owner_list=[]
+    for current_owner in current:
+        print(dict(current_owner))
+        owner_list.append(dict(current_owner))
+    print(owner_list)
+    return jsonify(owner_list)
+
+@app.route('/current_owner/<string:user_id>',methods=["get"])
+
+def current_user_owner(user_id):
+    matcher = NodeMatcher(graph)
+    match = matcher.match("user_data", id=user_id).first()
+    if match!=None:
+        current=list(graph.run('MATCH Current_Owner_relation=(user:user_data)-[:Current_Owner*]-(:pet_data) where user.id = "%s" WITH COLLECT(Current_Owner_relation) as paths CALL apoc.convert.toTree(paths) yield value RETURN value;'%(user_id)))
+        owner_list=[]
+        for current_owner in current:
+            print(dict(current_owner))
+            owner_list.append(dict(current_owner))
+            print(owner_list)
+        return jsonify(owner_list)
+    else:
+        return jsonify({"user_not_found": user_id})
+
+
+@app.route('/past_owner',methods=["get"])
+def past_owner():
+    current=list(graph.run('MATCH Past_Owner_relation=(:user_data)-[:Past_Owner]-(:pet_data) WITH COLLECT(Past_Owner_relation) as paths CALL apoc.convert.toTree(paths) yield value RETURN value;'))
+    owner_list=[]
+    for current_owner in current:
+        print(dict(current_owner))
+        owner_list.append(dict(current_owner))
+    print(owner_list)
+    return jsonify(owner_list)
+
+
+@app.route('/past_owner/<string:user_id>',methods=["get"])
+def past_user_owner(user_id):
+    matcher = NodeMatcher(graph)
+    match = matcher.match("user_data", id=user_id).first()
+    if match != None:
+        current = list(graph.run(
+            'MATCH Current_Owner_relation=(user:user_data)-[:Past_Owner*]-(:pet_data) where user.id = "%s" WITH COLLECT(Current_Owner_relation) as paths CALL apoc.convert.toTree(paths) yield value RETURN value;' % (user_id)))
+        owner_list = []
+        for current_owner in current:
+            print(dict(current_owner))
+            owner_list.append(dict(current_owner))
+            print(owner_list)
+        return jsonify(owner_list)
+    else:
+        return jsonify({"user_not_found": user_id})
+
+
+
+@app.after_request
+def add_header(response):
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'POST,GET,DELETE,PATCH,OPTIONS'
+    return response
+
+
+if __name__ == '__main__':
+    app.run()
